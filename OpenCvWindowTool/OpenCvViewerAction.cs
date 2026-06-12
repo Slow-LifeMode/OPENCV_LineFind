@@ -31,10 +31,14 @@ namespace OpenCvWindowTool
         private PointF dragImageStart;
         private RoiItem selectedRoi;
         private RoiHitPart activeRoiPart;
+        private RoiHit pendingRoiHit;
         private InteractionMode interactionMode;
         private RoiShape createRoiShape;
         private RoiItem creatingRoi;
-        private DateTime lastRoiMoveNotifyTime = DateTime.MinValue;
+        private bool roiGeometryChanged;
+        private bool showImage = true;
+        private bool showRois = true;
+        private bool enableRoiInteraction = true;
 
         /// <summary>
         /// 初始化行为层并绑定画布事件。
@@ -66,6 +70,48 @@ namespace OpenCvWindowTool
         /// 当前选中的ROI。
         /// </summary>
         public RoiItem SelectedRoi => selectedRoi;
+
+        public bool ShowImage
+        {
+            get { return showImage; }
+            set
+            {
+                if (showImage == value) return;
+                showImage = value;
+                canvas.Invalidate();
+            }
+        }
+
+        public bool ShowRois
+        {
+            get { return showRois; }
+            set
+            {
+                if (showRois == value) return;
+                showRois = value;
+                canvas.Invalidate();
+            }
+        }
+
+        public bool EnableRoiInteraction
+        {
+            get { return enableRoiInteraction; }
+            set
+            {
+                if (enableRoiInteraction == value) return;
+                enableRoiInteraction = value;
+                if (!enableRoiInteraction && interactionMode != InteractionMode.CreateRoiDragging)
+                {
+                    interactionMode = InteractionMode.None;
+                    activeRoiPart = RoiHitPart.None;
+                    pendingRoiHit = new RoiHit(null, RoiHitPart.None);
+                    dragging = false;
+                    canvas.Capture = false;
+                    canvas.Cursor = Cursors.Default;
+                    canvas.Invalidate();
+                }
+            }
+        }
 
         /// <summary>
         /// ROI选中对象变化事件。
@@ -356,7 +402,7 @@ namespace OpenCvWindowTool
         private void Roi_RefreshDisplay()
         {
             canvas.Invalidate();
-            if (selectedRoi != null)
+            if (selectedRoi != null && !IsRoiEditing)
             {
                 RoiChanged?.Invoke(owner, new RoiEventArgs(selectedRoi));
             }
@@ -375,13 +421,23 @@ namespace OpenCvWindowTool
             e.Graphics.Clear(Color.Black);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-            if (bitmap == null) return;
+            if (bitmap == null || !showImage) return;
 
+            bool isRoiEditing = IsRoiEditing;
             e.Graphics.DrawImage(bitmap, GetImageRect());
-            DrawOverlays(e.Graphics, overlays);
-            DrawRois(e.Graphics);
-            DrawOverlays(e.Graphics, linePreviewOverlays);
-            DrawOverlays(e.Graphics, lineDetectionOverlays);
+            if (!isRoiEditing)
+            {
+                DrawOverlays(e.Graphics, overlays);
+            }
+            if (showRois)
+            {
+                DrawRois(e.Graphics, true);
+                if (!isRoiEditing)
+                {
+                    DrawOverlays(e.Graphics, linePreviewOverlays);
+                    DrawOverlays(e.Graphics, lineDetectionOverlays);
+                }
+            }
         }
 
         private void Canvas_MouseWheel(object sender, MouseEventArgs e)
@@ -399,25 +455,51 @@ namespace OpenCvWindowTool
         {
             canvas.Focus();
             if (e.Button != MouseButtons.Left) return;
+            canvas.Capture = true;
 
             dragStart = e.Location;
             dragPanStart = pan;
             dragImageStart = ToImage(e.Location);
+            roiGeometryChanged = false;
+            pendingRoiHit = new RoiHit(null, RoiHitPart.None);
             if (interactionMode == InteractionMode.CreateRoiReady)
             {
+                if (!enableRoiInteraction || !showRois)
+                {
+                    interactionMode = InteractionMode.None;
+                    canvas.Cursor = Cursors.Default;
+                    canvas.Capture = false;
+                    return;
+                }
+
                 BeginCreateRoi(dragImageStart);
                 canvas.Cursor = Cursors.Cross;
                 canvas.Invalidate();
                 return;
             }
 
-            RoiItem bodyRoi = HitTestRoiBody(dragImageStart);
+            RoiHit selectedHit = enableRoiInteraction && showRois && selectedRoi != null
+                ? HitTestSelectedRoi(dragImageStart)
+                : new RoiHit(null, RoiHitPart.None);
+            if (selectedHit.Roi != null)
+            {
+                SetSelectedRoi(selectedHit.Roi);
+                activeRoiPart = selectedHit.Part;
+                pendingRoiHit = selectedHit;
+                interactionMode = InteractionMode.RoiPressed;
+                canvas.Cursor = GetRoiCursor(selectedHit.Part);
+                canvas.Invalidate();
+                return;
+            }
+
+            RoiItem bodyRoi = enableRoiInteraction && showRois ? HitTestRoiBody(dragImageStart) : null;
             if (bodyRoi != null)
             {
                 RoiHit hit = HitTestRoi(bodyRoi, dragImageStart);
                 SetSelectedRoi(hit.Roi);
                 activeRoiPart = hit.Part;
-                interactionMode = hit.Part == RoiHitPart.Body ? InteractionMode.MoveRoi : InteractionMode.ResizeRoi;
+                pendingRoiHit = hit;
+                interactionMode = InteractionMode.RoiPressed;
                 canvas.Cursor = GetRoiCursor(hit.Part);
                 canvas.Invalidate();
                 return;
@@ -440,6 +522,7 @@ namespace OpenCvWindowTool
             else if (interactionMode == InteractionMode.CreateRoiDragging && creatingRoi != null)
             {
                 UpdateCreatingRoi(imagePoint);
+                roiGeometryChanged = true;
                 RoiChanged?.Invoke(owner, new RoiEventArgs(creatingRoi));
                 canvas.Invalidate();
             }
@@ -448,22 +531,28 @@ namespace OpenCvWindowTool
                 pan = new PointF(dragPanStart.X + e.X - dragStart.X, dragPanStart.Y + e.Y - dragStart.Y);
                 canvas.Invalidate();
             }
+            else if (interactionMode == InteractionMode.RoiPressed && pendingRoiHit.Roi != null)
+            {
+                canvas.Cursor = GetRoiCursor(pendingRoiHit.Part);
+                if (IsDragDistanceExceeded(e.Location))
+                {
+                    selectedRoi = pendingRoiHit.Roi;
+                    activeRoiPart = pendingRoiHit.Part;
+                    interactionMode = activeRoiPart == RoiHitPart.Body ? InteractionMode.MoveRoi : InteractionMode.ResizeRoi;
+                    ApplyActiveRoiDrag(imagePoint);
+                }
+            }
             else if (interactionMode == InteractionMode.MoveRoi && selectedRoi != null)
             {
-                selectedRoi.Move(imagePoint.X - dragImageStart.X, imagePoint.Y - dragImageStart.Y);
-                dragImageStart = imagePoint;
-                NotifyRoiChangedThrottled(selectedRoi);
-                canvas.Invalidate();
+                ApplyActiveRoiDrag(imagePoint);
             }
             else if (interactionMode == InteractionMode.ResizeRoi && selectedRoi != null)
             {
-                selectedRoi.DragHandle(activeRoiPart, imagePoint);
-                NotifyRoiChangedThrottled(selectedRoi);
-                canvas.Invalidate();
+                ApplyActiveRoiDrag(imagePoint);
             }
             else
             {
-                RoiHit hit = HitTestRoi(imagePoint);
+                RoiHit hit = enableRoiInteraction && showRois ? HitTestRoi(imagePoint) : new RoiHit(null, RoiHitPart.None);
                 canvas.Cursor = hit.Roi == null ? Cursors.Default : GetRoiCursor(hit.Part);
             }
             UpdateStatus(e.Location);
@@ -471,22 +560,27 @@ namespace OpenCvWindowTool
 
         private void Canvas_MouseUp(object sender, MouseEventArgs e)
         {
+            if (e.Button != MouseButtons.Left) return;
+            canvas.Capture = false;
             if (interactionMode == InteractionMode.CreateRoiDragging)
             {
                 FinishCreateRoi();
                 return;
             }
 
-            bool roiEdited = interactionMode == InteractionMode.MoveRoi || interactionMode == InteractionMode.ResizeRoi;
+            bool roiEdited = roiGeometryChanged && (interactionMode == InteractionMode.MoveRoi || interactionMode == InteractionMode.ResizeRoi);
             dragging = false;
             interactionMode = InteractionMode.None;
             activeRoiPart = RoiHitPart.None;
+            pendingRoiHit = new RoiHit(null, RoiHitPart.None);
             canvas.Cursor = Cursors.Default;
+            roiGeometryChanged = false;
             if (roiEdited && selectedRoi != null)
             {
                 RoiChanged?.Invoke(owner, new RoiEventArgs(selectedRoi));
                 RoiEditCompleted?.Invoke(owner, new RoiEventArgs(selectedRoi));
             }
+            canvas.Invalidate();
         }
 
         private void Canvas_MouseEnter(object sender, EventArgs e)
@@ -528,11 +622,11 @@ namespace OpenCvWindowTool
             }
         }
 
-        private void DrawRois(Graphics graphics)
+        private void DrawRois(Graphics graphics, bool showSelection)
         {
             foreach (RoiItem roi in rois)
             {
-                roi.Draw(graphics, ToScreen, zoom, roi == selectedRoi);
+                roi.Draw(graphics, ToScreen, zoom, showSelection && roi == selectedRoi);
             }
         }
 
@@ -631,6 +725,13 @@ namespace OpenCvWindowTool
             return part == RoiHitPart.None ? new RoiHit(roi, RoiHitPart.Body) : new RoiHit(roi, part);
         }
 
+        private RoiHit HitTestSelectedRoi(PointF imagePoint)
+        {
+            if (selectedRoi == null) return new RoiHit(null, RoiHitPart.None);
+            RoiHitPart part = selectedRoi.HitTest(imagePoint, GetHitTolerance());
+            return part == RoiHitPart.None ? new RoiHit(null, RoiHitPart.None) : new RoiHit(selectedRoi, part);
+        }
+
         private RoiItem HitTestRoiBody(PointF imagePoint)
         {
             float tolerance = GetHitTolerance();
@@ -644,6 +745,43 @@ namespace OpenCvWindowTool
         private float GetHitTolerance()
         {
             return Math.Max(3f, 8f / Math.Max(zoom, 0.01f));
+        }
+
+        private bool IsRoiEditing
+        {
+            get
+            {
+                return interactionMode == InteractionMode.MoveRoi
+                    || interactionMode == InteractionMode.ResizeRoi
+                    || interactionMode == InteractionMode.CreateRoiDragging;
+            }
+        }
+
+        private bool IsDragDistanceExceeded(System.Drawing.Point location)
+        {
+            System.Drawing.Size size = SystemInformation.DragSize;
+            Rectangle dragBounds = new Rectangle(
+                dragStart.X - size.Width / 2,
+                dragStart.Y - size.Height / 2,
+                size.Width,
+                size.Height);
+            return !dragBounds.Contains(location);
+        }
+
+        private void ApplyActiveRoiDrag(PointF imagePoint)
+        {
+            if (selectedRoi == null) return;
+            if (interactionMode == InteractionMode.MoveRoi)
+            {
+                selectedRoi.Move(imagePoint.X - dragImageStart.X, imagePoint.Y - dragImageStart.Y);
+                dragImageStart = imagePoint;
+            }
+            else if (interactionMode == InteractionMode.ResizeRoi)
+            {
+                selectedRoi.DragHandle(activeRoiPart, imagePoint);
+            }
+            roiGeometryChanged = true;
+            canvas.Invalidate();
         }
 
         private void BeginCreateRoi(PointF startPoint)
@@ -665,6 +803,8 @@ namespace OpenCvWindowTool
         {
             creatingRoi = null;
             interactionMode = InteractionMode.None;
+            pendingRoiHit = new RoiHit(null, RoiHitPart.None);
+            canvas.Capture = false;
             canvas.Cursor = Cursors.Default;
             canvas.Invalidate();
             if (selectedRoi != null)
@@ -672,14 +812,6 @@ namespace OpenCvWindowTool
                 RoiChanged?.Invoke(owner, new RoiEventArgs(selectedRoi));
                 RoiEditCompleted?.Invoke(owner, new RoiEventArgs(selectedRoi));
             }
-        }
-
-        private void NotifyRoiChangedThrottled(RoiItem roi)
-        {
-            DateTime now = DateTime.UtcNow;
-            if ((now - lastRoiMoveNotifyTime).TotalMilliseconds < 50d) return;
-            lastRoiMoveNotifyTime = now;
-            RoiChanged?.Invoke(owner, new RoiEventArgs(roi));
         }
 
         private static RoiItem CreateRoiFromDrag(RoiShape shape, PointF startPoint, PointF currentPoint)
@@ -783,6 +915,7 @@ namespace OpenCvWindowTool
         {
             None,
             Pan,
+            RoiPressed,
             MoveRoi,
             ResizeRoi,
             CreateRoiReady,

@@ -83,6 +83,27 @@ namespace OpenCvWindowTool
         [Browsable(false)]
         public RoiItem SelectedRoi => viewerAction.SelectedRoi;
 
+        [Browsable(false)]
+        public bool ShowImage
+        {
+            get { return viewerAction.ShowImage; }
+            set { viewerAction.ShowImage = value; }
+        }
+
+        [Browsable(false)]
+        public bool ShowRois
+        {
+            get { return viewerAction.ShowRois; }
+            set { viewerAction.ShowRois = value; }
+        }
+
+        [Browsable(false)]
+        public bool EnableRoiInteraction
+        {
+            get { return viewerAction.EnableRoiInteraction; }
+            set { viewerAction.EnableRoiInteraction = value; }
+        }
+
         /// <summary>
         /// ROI选中对象变化事件。
         /// </summary>

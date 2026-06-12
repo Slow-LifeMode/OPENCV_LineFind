@@ -17,6 +17,7 @@ namespace OpenCvWindowToolWpfDemo
         private LineScanDirection currentDirection = LineScanDirection.LeftToRight;
         private OperatorModule currentModule = OperatorModule.Input;
         private bool initializing;
+        private bool refreshingLineDisplay;
 
         public MainWindow()
         {
@@ -98,6 +99,10 @@ namespace OpenCvWindowToolWpfDemo
             RoiPanel.Visibility = module == OperatorModule.Roi ? Visibility.Visible : Visibility.Collapsed;
             ParamsPanel.Visibility = module == OperatorModule.Params ? Visibility.Visible : Visibility.Collapsed;
             ResultPanel.Visibility = module == OperatorModule.Result ? Visibility.Visible : Visibility.Collapsed;
+            ViewerBorder.Visibility = module == OperatorModule.Result ? Visibility.Collapsed : Visibility.Visible;
+            viewer.ShowImage = module != OperatorModule.Result;
+            viewer.ShowRois = module == OperatorModule.Roi || module == OperatorModule.Params;
+            viewer.EnableRoiInteraction = module == OperatorModule.Roi || module == OperatorModule.Params;
             MarkModuleButton(InputModuleButton, module == OperatorModule.Input);
             MarkModuleButton(RoiModuleButton, module == OperatorModule.Roi);
             MarkModuleButton(ParamsModuleButton, module == OperatorModule.Params);
@@ -173,6 +178,7 @@ namespace OpenCvWindowToolWpfDemo
         private void Viewer_RoiChanged(object sender, RoiEventArgs e)
         {
             RoiStatusTextBlock.Text = viewer.SelectedRoi == null ? "未选择ROI" : viewer.SelectedRoi.Name;
+            if (refreshingLineDisplay) return;
             if (currentModule == OperatorModule.Params)
             {
                 RefreshLineDisplay(false);
@@ -191,15 +197,14 @@ namespace OpenCvWindowToolWpfDemo
         private void Viewer_SelectedRoiChanged(object sender, EventArgs e)
         {
             RoiStatusTextBlock.Text = viewer.SelectedRoi == null ? "未选择ROI" : viewer.SelectedRoi.Name;
-            if (currentModule == OperatorModule.Params)
-            {
-                RefreshLineDisplay(true);
-            }
         }
 
         private void RefreshLineDisplay(bool runDetection)
         {
             if (initializing || viewer == null) return;
+            refreshingLineDisplay = true;
+            try
+            {
             if (currentModule != OperatorModule.Params)
             {
                 ResetRoiColor();
@@ -239,6 +244,11 @@ namespace OpenCvWindowToolWpfDemo
                 viewer.ClearLineDetectionResult();
             }
             UpdateResultViews();
+            }
+            finally
+            {
+                refreshingLineDisplay = false;
+            }
         }
 
         private void ResetRoiColor()
@@ -260,8 +270,8 @@ namespace OpenCvWindowToolWpfDemo
         {
             return new LineDetectionParams
             {
-                EdgeThreshold = ParseFloat(ThresholdTextBox.Text, 20f),
-                SampleCount = ParseInt(SampleCountTextBox.Text, 40),
+                EdgeThreshold = (float)ThresholdInput.Value,
+                SampleCount = SampleCountInput.IntValue,
                 EdgePolarity = GetSelectedValue(PolarityComboBox, LineEdgePolarity.Any),
                 StrengthType = GetSelectedValue(StrengthTypeComboBox, LineEdgeStrengthType.Gradient1D),
                 SelectionMode = GetSelectedValue(SelectionModeComboBox, LineSelectionMode.Strongest),
@@ -340,16 +350,6 @@ namespace OpenCvWindowToolWpfDemo
                 default:
                     return "从左到右";
             }
-        }
-
-        private static float ParseFloat(string text, float defaultValue)
-        {
-            return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float value) ? value : defaultValue;
-        }
-
-        private static int ParseInt(string text, int defaultValue)
-        {
-            return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) ? value : defaultValue;
         }
 
         private enum OperatorModule
