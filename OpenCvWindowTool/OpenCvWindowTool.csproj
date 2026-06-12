@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{3F2B0E0D-2110-4FA4-9D35-4E69AA30A52A}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>OpenCvWindowTool</RootNamespace>
+    <AssemblyName>OpenCvWindowTool</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="OpenCvSharp">
+      <HintPath>..\..\EdgeDetectionCSharp\packages\OpenCvSharp4.4.11.0.20250507\lib\net48\OpenCvSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Buffers">
+      <HintPath>..\..\EdgeDetectionCSharp\packages\System.Buffers.4.6.1\lib\net462\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Memory">
+      <HintPath>..\..\EdgeDetectionCSharp\packages\System.Memory.4.6.3\lib\net462\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors">
+      <HintPath>..\..\EdgeDetectionCSharp\packages\System.Numerics.Vectors.4.6.1\lib\net462\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>..\..\EdgeDetectionCSharp\packages\System.Runtime.CompilerServices.Unsafe.6.1.2\lib\net462\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="BufferedImagePanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="OpenCvImageConverter.cs" />
+    <Compile Include="OpenCvImageViewer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="LineDetectionModels.cs" />
+    <Compile Include="LineDetectionOperator.cs" />
+    <Compile Include="LineDetectionOverlayBuilder.cs" />
+    <Compile Include="OpenCvViewerAction.cs" />
+    <Compile Include="OverlayItem.cs" />
+    <Compile Include="RoiEventArgs.cs" />
+    <Compile Include="RoiItem.cs" />
+    <Compile Include="RoiStyle.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\EdgeDetectionCSharp\packages\OpenCvSharp4.runtime.win.4.11.0.20250507\runtimes\win-x64\native\OpenCvSharpExtern.dll">
+      <Link>dll\x64\OpenCvSharpExtern.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\EdgeDetectionCSharp\packages\OpenCvSharp4.runtime.win.4.11.0.20250507\runtimes\win-x64\native\opencv_videoio_ffmpeg4110_64.dll">
+      <Link>dll\x64\opencv_videoio_ffmpeg4110_64.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\EdgeDetectionCSharp\packages\OpenCvSharp4.runtime.win.4.11.0.20250507\runtimes\win-x86\native\OpenCvSharpExtern.dll">
+      <Link>dll\x86\OpenCvSharpExtern.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\EdgeDetectionCSharp\packages\OpenCvSharp4.runtime.win.4.11.0.20250507\runtimes\win-x86\native\opencv_videoio_ffmpeg4110.dll">
+      <Link>dll\x86\opencv_videoio_ffmpeg4110.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\EdgeDetectionCSharp\packages\System.Buffers.4.6.1\lib\net462\System.Buffers.dll">
+      <Link>System.Buffers.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\EdgeDetectionCSharp\packages\System.Memory.4.6.3\lib\net462\System.Memory.dll">
+      <Link>System.Memory.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\EdgeDetectionCSharp\packages\System.Numerics.Vectors.4.6.1\lib\net462\System.Numerics.Vectors.dll">
+      <Link>System.Numerics.Vectors.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\EdgeDetectionCSharp\packages\System.Runtime.CompilerServices.Unsafe.6.1.2\lib\net462\System.Runtime.CompilerServices.Unsafe.dll">
+      <Link>System.Runtime.CompilerServices.Unsafe.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
